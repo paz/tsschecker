@@ -246,7 +246,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	plist_get_string_val(node, &string);
 	sscanf(string, "%x", &chip_id);
 	plist_dict_set_item(parameters, "ApChipID", plist_new_uint(chip_id));
-	free(string);
+	// free(string); // causes tsschecker to crash/exit with no error messages
 	string = NULL;
 	node = NULL;
 
@@ -260,7 +260,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	plist_get_string_val(node, &string);
 	sscanf(string, "%x", &board_id);
 	plist_dict_set_item(parameters, "ApBoardID", plist_new_uint(board_id));
-	free(string);
+	// free(string); // causes tsschecker to crash/exit with no error messages
 	string = NULL;
 	node = NULL;
 
@@ -274,7 +274,7 @@ int tss_parameters_add_from_manifest(plist_t parameters, plist_t build_identity)
 	plist_get_string_val(node, &string);
 	sscanf(string, "%x", &security_domain);
 	plist_dict_set_item(parameters, "ApSecurityDomain", plist_new_uint(security_domain));
-	free(string);
+	// free(string); // causes tsschecker to crash/exit with no error messages
 	string = NULL;
 	node = NULL;
 
@@ -696,9 +696,9 @@ static void tss_entry_apply_restore_request_rules(plist_t tss_entry, plist_t par
 			} else {
 				conditions_fulfilled = 0;
 			}
-			free(key);
+			//free(key); // causes tsschecker to crash/exit with no error messages
 		}
-		free(iter);
+		//free(iter);  // causes tsschecker to crash/exit with no error messages
 		iter = NULL;
 
 		if (!conditions_fulfilled) {
@@ -721,7 +721,7 @@ static void tss_entry_apply_restore_request_rules(plist_t tss_entry, plist_t par
 				debug("DEBUG: %s=%s to TSS entry\n", key, (bv) ? "true" : "false");
 				plist_dict_set_item(tss_entry, key, plist_new_bool(bv));
 			}
-			free(key);
+			//free(key); // causes tsschecker to crash/exit with no error messages
 		}
 	}
 }
@@ -750,13 +750,13 @@ int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrid
 
 		/* do not populate BasebandFirmware, only in baseband request */
 		if ((strcmp(key, "BasebandFirmware") == 0)) {
-			free(key);
+			//free(key); // causes tsschecker to crash/exit with no error messages
 			continue;
 		}
 
 		/* only used with diagnostics firmware */
 		if ((strcmp(key, "Diags") == 0)) {
-			free(key);
+			//free(key); // causes tsschecker to crash/exit with no error messages
 			continue;
 		}
 
@@ -795,9 +795,9 @@ int tss_request_add_ap_tags(plist_t request, plist_t parameters, plist_t overrid
 		/* finally add entry to request */
 		plist_dict_set_item(request, key, tss_entry);
 
-		free(key);
+		//free(key); // causes tsschecker to crash/exit with no error messages
 	}
-	free(iter);
+	//free(iter); // causes tsschecker to crash/exit with no error messages
 
 	/* apply overrides */
 	if (overrides) {
@@ -1651,8 +1651,8 @@ char* tss_request_send_raw(char* request, const char* server_url_string, int* re
     resp = response->content;
     if (response_lenth) *response_lenth = response->length;
     
-    free(response);
-    free(request);
+    free(response); // causes tsschecker to crash/exit with no error messages
+    //free(request); // causes tsschecker to crash/exit with no error messages
     return resp;
 }
 
