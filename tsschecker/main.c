@@ -33,6 +33,10 @@
 int idevicerestore_debug;
 #define reterror(code,a ...) {error(a); err = code; goto error;}
 
+// got this from https://superuser.com/a/509830
+#define disable_stdout_buffering() do { \
+               setvbuf(stdout, NULL, _IONBF, 0); } while(0)
+
 static struct option longopts[] = {
     { "build-manifest",     required_argument, NULL, 'm' },
     { "device",             required_argument, NULL, 'd' },
@@ -147,6 +151,7 @@ char *parseNonce(const char *nonce, size_t *parsedLen){
 }
 
 int main(int argc, const char * argv[]) {
+    disable_stdout_buffering();
     int err = 0;
     int isSigned = 0;
     printf("Version: "TSSCHECKER_VERSION_SHA" - "TSSCHECKER_VERSION_COUNT"\n");
