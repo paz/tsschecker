@@ -1640,7 +1640,7 @@ char* tss_request_send_raw(char* request, const char* server_url_string, int* re
         } else {
             error("ERROR: TSS request failed: %s (status=%d)\n", curl_error_message, status_code);
         }
-        free(request);
+        //free(request); // causes tsschecker to crash/exit with no error messages
         if (response)
             free(response->content);
         if (response)
