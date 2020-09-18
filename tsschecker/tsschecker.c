@@ -55,7 +55,7 @@ enum paths{
 static const char *win_pathvars[]={
     "\\tsschecker",
     "\\ota.json",
-    "\\firmware.json"
+    "\\firmwares.json"
 };
 
 static const char *win_path_get(enum paths path){
@@ -88,7 +88,7 @@ static const char *win_path_get(enum paths path){
 
 #define MANIFEST_SAVE_PATH "/tmp/tsschecker"
 #define FIRMWARE_OTA_JSON_PATH "/tmp/ota.json"
-#define FIRMWARE_JSON_PATH "/tmp/firmware.json"
+#define FIRMWARE_JSON_PATH "/tmp/firmwares.json"
 #define DIRECTORY_DELIMITER_STR "/"
 #define DIRECTORY_DELIMITER_CHR '/'
 
@@ -149,6 +149,7 @@ static struct bbdevice bbdevices[] = {
     {"iPhone12,1", 524245983, 12}, // iPhone 11
     {"iPhone12,3", 524245983, 12}, // iPhone 11 Pro
     {"iPhone12,5", 524245983, 12}, // iPhone 11 Pro Max
+    {"iPhone12,8", 524245983, 12}, // iPhone SE (2020)
     
     // iPads
     {"iPad1,1", 0, 0}, // iPad (1st gen)
@@ -210,6 +211,30 @@ static struct bbdevice bbdevices[] = {
     {"iPad8,6", 0, 0}, // iPad Pro (12,9", 3rd gen, 1 TB model, Wi-Fi)
     {"iPad8,7", 165673526, 12}, // iPad Pro 12,9", 3rd gen, Cellular)
     {"iPad8,8", 165673526, 12}, // iPad Pro 12,9", 3rd gen, 1 TB model, Cellular)
+    {"iPad8,9", 0, 0}, // iPad Pro (11", 2nd gen, Wi-Fi)
+    {"iPad8,10", 524245983, 12}, // iPad Pro 11", 2nd gen, Cellular)
+    {"iPad8,11", 0, 0}, // iPad Pro (12,9", 4th gen, Wi-Fi)
+    {"iPad8,12", 524245983, 12}, // iPad Pro 12,9", 4th gen, Cellular)
+    
+    // Apple Watches
+    {"Watch1,1", 0, 0}, // Apple Watch 1st gen (38mm)
+    {"Watch1,2", 0, 0}, // Apple Watch 1st gen (42mm)
+    {"Watch2,6", 0, 0}, // Apple Watch Series 1 (38mm)
+    {"Watch2,7", 0, 0}, // Apple Watch Series 1 (42mm)
+    {"Watch2,3", 0, 0}, // Apple Watch Series 2 (38mm)
+    {"Watch2,4", 0, 0}, // Apple Watch Series 2 (42mm)
+    {"Watch3,1", 3840149528, 4}, // Apple Watch Series 3 (38mm GPS + Cellular)
+    {"Watch3,2", 3840149528, 4}, // Apple Watch Series 3 (42mm GPS + Cellular)
+    {"Watch3,3", 0, 0}, // Apple Watch Series 3 (38mm GPS)
+    {"Watch3,4", 0, 0}, // Apple Watch Series 3 (42mm GPS)
+    {"Watch4,1", 0, 0}, // Apple Watch Series 4 (40mm GPS)
+    {"Watch4,2", 0, 0}, // Apple Watch Series 4 (44mm GPS)
+    {"Watch4,3", 744114402, 12}, // Apple Watch Series 4 (40mm GPS + Cellular)
+    {"Watch4,4", 744114402, 12}, // Apple Watch Series 4 (44mm GPS + Cellular)
+    {"Watch5,1", 0, 0}, // Apple Watch Series 5 (40mm GPS)
+    {"Watch5,2", 0, 0}, // Apple Watch Series 5 (44mm GPS)
+    {"Watch5,3", 744114402, 12}, // Apple Watch Series 5 (40mm GPS + Cellular)
+    {"Watch5,4", 744114402, 12}, // Apple Watch Series 5 (44mm GPS + Cellular)
     
     // Apple TVs
     {"AppleTV1,1", 0, 0}, // 1st gen
@@ -226,7 +251,7 @@ inline static t_bbdevice bbdevices_get_all() {
 }
 
 char *getFirmwareJson(){
-    info("[TSSC] opening firmware.json\n");
+    info("[TSSC] opening firmwares.json\n");
     FILE *f = fopen(FIRMWARE_JSON_PATH, "rb");
     if (!f || nocache){
         downloadFile(FIRMWARE_JSON_URL, FIRMWARE_JSON_PATH);
@@ -299,25 +324,31 @@ const char *getModelFromBoardconfig(const char *boardconfig){
 }
 
 plist_t getBuildidentityWithBoardconfig(plist_t buildManifest, const char *boardconfig, int isUpdateInstall){
-    plist_t rt = NULL;
-#define reterror(a ... ) {error(a); rt = NULL; goto error;}
-    
+    plist_t selected_build_identity = NULL;
     plist_t buildidentities = plist_dict_get_item(buildManifest, "BuildIdentities");
     if (!buildidentities || plist_get_node_type(buildidentities) != PLIST_ARRAY){
-        reterror("[TSSR] Error: could not get BuildIdentities\n");
+        error("[TSSR] Error: could not get BuildIdentities\n");
+        return NULL;
     }
-    for (int i=0; i<plist_array_get_size(buildidentities); i++) {
-        rt = plist_array_get_item(buildidentities, i);
-        if (!rt || plist_get_node_type(rt) != PLIST_DICT){
-            reterror("[TSSR] Error: could not get id%d\n",i);
+    
+    for (int i = 0; i < plist_array_get_size(buildidentities); i++) {
+        info("[TSSR] Checking BuildIdentity %d\n", i);
+        plist_t build_identity = plist_array_get_item(buildidentities, i);
+        if (!build_identity || plist_get_node_type(build_identity) != PLIST_DICT){
+            warning("[TSSR] Could not get BuildIdentity\n");
+            continue;
         }
-        plist_t infodict = plist_dict_get_item(rt, "Info");
+        plist_t infodict = plist_dict_get_item(build_identity, "Info");
         if (!infodict || plist_get_node_type(infodict) != PLIST_DICT){
-            reterror("[TSSR] Error: could not get infodict\n");
+            warning("[TSSR] Could not get info dictionary\n");
+            continue;
         }
         plist_t RestoreBehavior = plist_dict_get_item(infodict, "RestoreBehavior");
+        // certain buildidentities (eg: Research Developer Erase Install) in some manifests
+        // don't contain a RestoreBehavior
         if (!RestoreBehavior || plist_get_node_type(RestoreBehavior) != PLIST_STRING){
-            reterror("[TSSR] Error: could not get RestoreBehavior\n");
+            warning("[TSSR] Could not get RestoreBehavior\n");
+            continue;
         }
         char *string = NULL;
         plist_get_string_val(RestoreBehavior, &string);
@@ -326,24 +357,22 @@ plist_t getBuildidentityWithBoardconfig(plist_t buildManifest, const char *board
         if ((strncmp(string, "Erase", strlen(string)) != 0) == !isUpdateInstall){
             /* continue when Erase found but isUpdateInstall
                is true or Update found and isUpdateInstall is false */
-            rt = NULL;
             continue;
         }
         
         plist_t DeviceClass = plist_dict_get_item(infodict, "DeviceClass");
         if (!DeviceClass || plist_get_node_type(DeviceClass) != PLIST_STRING){
-            reterror("[TSSR] Error: could not get DeviceClass\n");
+            warning("[TSSR] Could not get DeviceClass\n");
         }
         plist_get_string_val(DeviceClass, &string);
-        if (strcasecmp(string, boardconfig) != 0)
-            rt = NULL;
-        else
+        if (strcasecmp(string, boardconfig) == 0)
+        {
+            info("[TSSR] Selected BuildIdentity for request\n");
+            selected_build_identity = build_identity;
             break;
+        }
     }
-    
-error:
-    return rt;
-#undef reterror
+    return selected_build_identity;
 }
 
 plist_t getBuildidentity(plist_t buildManifest, const char *model, int isUpdateInstall){
@@ -760,14 +789,14 @@ getID0:
                 ? getBuildidentityWithBoardconfig(manifest, devVals->deviceBoard, devVals->isUpdateInstall)
                 : getBuildidentity(manifest, devVals->deviceModel, devVals->isUpdateInstall);
     if (!id0 && !devVals->installType){
-        warning("[TSSC] could not get id0 for installType=Erase. Using fallback installType=Update since user did not specify installType manually\n");
+        warning("[TSSC] could not get BuildIdentity for installType=Erase. Using fallback installType=Update since user did not specify installType manually\n");
 
         devVals->installType = kInstallTypeUpdate;
         goto getID0;
     }
     
     if (!id0 || plist_get_node_type(id0) != PLIST_DICT){
-        reterror("[TSSR] Error: could not get id0 for installType=%s\n",devVals->isUpdateInstall ? "Update" : "Erase");
+        reterror("[TSSR] Error: could not get BuildIdentity for installType=%s\n",devVals->isUpdateInstall ? "Update" : "Erase");
     }
     plist_t manifestdict = plist_dict_get_item(id0, "Manifest");
     if (!manifestdict || plist_get_node_type(manifestdict) != PLIST_DICT){
@@ -829,7 +858,7 @@ getID0:
             log("[TSSR] LOG: device %s doesn't need a baseband ticket, continuing without requesting a Baseband ticket\n",devVals->deviceModel);
         }
     }else{
-        info("[TSSR] User specified doesn't to request a baseband ticket.\n");
+        info("[TSSR] User specified to not request a baseband ticket.\n");
     }
     
     *tssreqret = tssreq;
